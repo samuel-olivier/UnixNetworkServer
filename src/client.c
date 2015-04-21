@@ -5,13 +5,14 @@
 ** Login   <olivie_f@epitech.net>
 ** 
 ** Started on  Tue Apr 21 17:40:18 2015 Samuel Olivier
-** Last update Tue Apr 21 18:25:43 2015 Samuel Olivier
+** Last update Tue Apr 21 20:30:59 2015 Samuel Olivier
 */
 
 #include "client.h"
 
 #include <stdlib.h>
 #include <strings.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdio.h>
 
@@ -46,7 +47,7 @@ int	client_accept(client *this, int socket)
   return this->socket == -1 ? 0 : 1;
 }
 
-int	client_read(client *this)
+int	client_flushRead(client *this)
 {
   char	buffer[CLIENT_READ_SIZE];
   int	nbRead = read(this->socket, buffer, CLIENT_READ_SIZE);
@@ -55,13 +56,16 @@ int	client_read(client *this)
     perror("read()");
     return -1;
   } else if (nbRead == 0) {
+    printf("[DEBUG] Client closed the connection : fd = %d\n", this->socket);
+    close(this->socket);
+    this->socket = -1;
     return 0;
   }
   buffer_append(this->read, buffer, nbRead);
   return nbRead;
 }
 
-int	client_write(client *this)
+int	client_flushWrite(client *this)
 {
   int	sizeToWrite = buffer_size(this->write) > CLIENT_WRITE_SIZE ?
     CLIENT_WRITE_SIZE : buffer_size(this->write);
@@ -71,7 +75,17 @@ int	client_write(client *this)
     perror("write()");
     return -1;
   }
-  buffer_remove(this->read, nbWriten);
+  buffer_remove(this->write, nbWriten);
   return nbWriten;
 
+}
+
+void	client_writeData(client *this, char *data, int size)
+{
+  buffer_append(this->write, data, size);
+}
+
+void	client_writeString(client *this, char *str)
+{
+  client_writeData(this, str, strlen(str));
 }

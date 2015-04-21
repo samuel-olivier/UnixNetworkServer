@@ -5,7 +5,7 @@
 ** Login   <olivie_f@epitech.net>
 ** 
 ** Started on  Tue Apr 21 11:01:06 2015 Samuel Olivier
-** Last update Tue Apr 21 18:06:41 2015 Samuel Olivier
+** Last update Tue Apr 21 20:21:16 2015 Samuel Olivier
 */
 
 #ifndef __CLIENT__
@@ -32,7 +32,9 @@ client	*new_client();
 void	delete_client(client *this);
 
 int	client_accept(client *this, int socket);
-int	client_read(client *this);
-int	client_write(client *this);
+int	client_flushRead(client *this);
+int	client_flushWrite(client *this);
+void	client_writeData(client *this, char *data, int size);
+void	client_writeString(client *this, char *str);
 
 #endif

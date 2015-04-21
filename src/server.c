@@ -5,7 +5,7 @@
 ** Login   <olivie_f@epitech.net>
 ** 
 ** Started on  Tue Apr 21 17:02:50 2015 Samuel Olivier
-** Last update Tue Apr 21 18:30:01 2015 Samuel Olivier
+** Last update Tue Apr 21 20:18:59 2015 Samuel Olivier
 */
 
 #include "server.h"
@@ -28,6 +28,8 @@ typedef struct
 
 static void	initFdSets(server *this, fdSetContainer *fdSets);
 static void	flushNetworkForOneClient(int idx, void *data, void *param);
+static int	clientNeedDeletion(int idx, void *data, void *param);
+static void	deleteOneClient(void *data);
 
 server	*new_server()
 {
@@ -41,6 +43,7 @@ server	*new_server()
 
 void	delete_server(server *this)
 {
+  delete_list(&this->clients, &deleteOneClient);
   if (this->socket >= 0) {
     close(this->socket);
   }
@@ -54,6 +57,11 @@ void    server_listen(server *this, int port, int maxClientNumber)
     perror("socket()");
     delete_server(this);
     return ;
+  }
+  int yes = 1;
+  if (setsockopt(this->socket, SOL_SOCKET, SO_REUSEADDR,
+		 &yes, sizeof(int)) == -1 ) {
+    perror("setsockopt()");
   }
   this->addr.sin_family = AF_INET;
   this->addr.sin_addr.s_addr = INADDR_ANY;
@@ -86,6 +94,7 @@ int	server_flushNetwork(server *this, struct timeval *timeout,
 {
   fdSetContainer	fdSets;
 
+  list_removeIf(&this->clients, clientNeedDeletion, NULL);
   initFdSets(this, &fdSets);
   if (select(fdSets.maxFd + 1, &fdSets.readFdSet, &fdSets.writeFdSet,
 	     NULL, timeout) == -1) {
@@ -102,12 +111,33 @@ int	server_flushNetwork(server *this, struct timeval *timeout,
 	client->data = NULL;
       }
       list_append(&this->clients, client);
+      printf("[DEBUG] New client : fd = %d\n", client->socket);
     } else {
       delete_client(client);
     }
   }
-  list_foreach(&this->clients, flushNetworkForOneClient, &fdSets);
+  list_foreach(&this->clients, &flushNetworkForOneClient, &fdSets);
   return 1;
+}
+
+static void	deleteOneClient(void *data)
+{
+  client		*client = data;
+
+  delete_client(client);
+}
+
+static int	clientNeedDeletion(int idx, void *data, void *param)
+{
+  client		*client = data;
+
+  (void)idx;
+  (void)param;
+  if (client->socket == -1) {
+    delete_client(client);
+    return 1;
+  }
+  return 0;
 }
 
 static void	flushNetworkForOneClient(int idx, void *data, void *param)
@@ -117,11 +147,11 @@ static void	flushNetworkForOneClient(int idx, void *data, void *param)
 
   (void)idx;
   if (FD_ISSET(client->socket, &fdSets->readFdSet)) {
-    client_read(client);
+    client_flushRead(client);
   }
   if (!buffer_isEmpty(client->write) &&
       FD_ISSET(client->socket, &fdSets->writeFdSet)) {
-    client_write(client);
+    client_flushWrite(client);
   }
 }
 
